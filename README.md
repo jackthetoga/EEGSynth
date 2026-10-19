@@ -140,3 +140,4 @@ contact report says `railed` or `no signal`:
 - Only the 8-channel Cyton is supported (not the Daisy 16-channel add-on), at the default gain (24×).
 - Set `mains_hz = 50` in `config.toml` outside the Americas.
 # EEGSynth
+# EEGSynth
