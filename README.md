@@ -141,3 +141,4 @@ contact report says `railed` or `no signal`:
 - Set `mains_hz = 50` in `config.toml` outside the Americas.
 # EEGSynth
 # EEGSynth
+# EEGSynth
