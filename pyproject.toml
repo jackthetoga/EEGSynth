@@ -1,0 +1,31 @@
+[project]
+name = "eegsynth"
+version = "0.1.0"
+description = "Stream OpenBCI Cyton EEG band powers as MIDI CC to a synth (e.g. Logic Pro)"
+requires-python = ">=3.11"
+dependencies = [
+    "numpy>=1.24",
+    "pyserial>=3.5",
+    "scipy>=1.10",
+]
+
+[project.optional-dependencies]
+# Needed wherever a MIDI port is opened: the Mac running the bridge, or any
+# machine using --midi directly. The Pi in UDP mode does not need it.
+midi = [
+    "mido>=1.3",
+    "python-rtmidi>=1.5",
+]
+
+[project.scripts]
+eegsynth = "eegsynth.cli:main"
+
+[build-system]
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+packages = ["eegsynth"]
+
+[tool.setuptools.package-data]
+eegsynth = ["web/*"]

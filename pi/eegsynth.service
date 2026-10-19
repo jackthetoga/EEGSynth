@@ -1,0 +1,19 @@
+# Starts streaming automatically when the Pi boots.
+# Edit User, WorkingDirectory and the Mac's hostname, then:
+#   sudo cp pi/eegsynth.service /etc/systemd/system/
+#   sudo systemctl enable --now eegsynth
+#   journalctl -u eegsynth -f
+[Unit]
+Description=EEGSynth: Cyton EEG -> MIDI CC over UDP
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=pi
+WorkingDirectory=/home/pi/EEGSynth
+ExecStart=/home/pi/EEGSynth/.venv/bin/eegsynth run --udp YOUR-MAC.local:9000
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target

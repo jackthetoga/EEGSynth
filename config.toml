@@ -1,0 +1,130 @@
+# EEGSynth configuration.
+#
+# Channels are the Cyton's 1-8 (N1P..N8P pins). The default montage places
+# electrodes where each detector works best:
+#
+#   1 Fp1  2 Fp2   forehead above each eye  -> blinks, eyebrow raise
+#   3 F7   4 F8    left / right temple, level with the outer eye corners -> eye movements
+#   5 T7   6 T8    above each ear, over the temporalis muscle -> jaw clench
+#   7 O1   8 O2    back of the head -> alpha
+#   SRB2 (reference) and BIAS (ground) on the earlobes.
+#
+# Every detector outputs MIDI on [general] midi_channel. Set a note or cc to -1
+# to disable that output, or `enabled = false` to turn a detector off.
+# Notes from short events (blinks, looks) last 150 ms; jaw, eyebrow and
+# eyes-closed notes are held for as long as the gesture lasts.
+
+[general]
+labels = ["Fp1", "Fp2", "F7", "F8", "T7", "T8", "O1", "O2"]
+mains_hz = 60          # 50 in Europe and most of Asia
+midi_channel = 1
+update_hz = 25         # MIDI / GUI update rate
+artifact_uv = 150      # alpha and band CCs hold while their channels exceed this peak-to-peak
+
+# Accelerometer on the Cyton board. Only helps if the board is mounted on
+# the headset, so it moves with your head.
+[motion]
+cancel = true          # adaptively subtract accelerometer-correlated signal from every channel
+gate = true            # pause all detectors while the head is moving
+threshold_g = 0.04     # acceleration (gravity removed) that counts as moving
+hold_seconds = 0.8     # stay paused this long after movement stops
+veto_seconds = 0.15    # blink/eye events wait this long and are dropped if motion or an artifact follows
+step_size = 0.01       # how fast the canceller adapts
+
+# Per-channel artifact rejection. A flagged channel is ignored by every
+# detector that uses it until `hold_seconds` after the artifact ends.
+[artifacts]
+step_uv = 500          # sample-to-sample jump = electrode pop
+amplitude_uv = 1000    # slow excursion larger than any blink or eye movement
+flat_seconds = 0.25    # unchanging signal this long = no contact / saturated input
+hold_seconds = 1.0
+
+# Jaw clench: 30-55 Hz muscle activity at the temples. Graded: the CC follows
+# how hard you clench, and the note's velocity is the strength of the onset.
+[jaw]
+channels = [5, 6]
+threshold_ratio = 4.0      # EMG must be this many times your resting level
+full_scale_ratio = 40.0    # this many times resting = maximum CC / velocity
+require_all = true         # both temples must light up (an electrode pop is one channel)
+min_hf_lf = 0.3            # 30-55 Hz must be >= this fraction of 1-10 Hz (pops/motion are slow-wave heavy)
+max_uv = 600               # EMG envelope above this isn't muscle
+min_baseline_uv = 0.5      # floor on the resting level so a dead channel can't give huge ratios
+min_duration = 0.2         # seconds above threshold before it counts
+refractory = 0.3           # seconds after a release before a new onset
+cc = 23
+note = 36
+
+# Eyebrow raise: same idea on the forehead. Told apart from a jaw clench
+# because frontal EMG must exceed temporal EMG by `dominance`.
+[eyebrow]
+channels = [1, 2]
+threshold_ratio = 4.0
+full_scale_ratio = 40.0
+dominance = 2.5
+require_all = true
+min_hf_lf = 0.2
+max_uv = 300
+min_baseline_uv = 0.5
+min_duration = 0.2
+refractory = 0.3
+cc = 24
+note = 38
+
+# Blinks: big same-polarity spikes on Fp1/Fp2. Single blinks are reported only
+# after `double_window` passes with no second blink, so they lag slightly;
+# double blinks are reported immediately and are the better deliberate trigger.
+[blink]
+channels = [1, 2]
+min_uv = 60            # absolute minimum spike size
+noise_factor = 6.0     # ...or this many times the background level, whichever is bigger
+max_duration = 0.5     # longer deflections are slow eye movements, not blinks
+double_window = 0.6
+note_single = 40
+note_double = 41
+
+# Horizontal eye movements: [left temple, right temple]. Look to one side and
+# back to centre; only the move away from centre triggers. If the GUI shows
+# left and right swapped, set invert = true.
+[eyes]
+channels = [3, 4]
+threshold_uv = 60      # size of the step within 100 ms; lower = more sensitive
+invert = false
+return_seconds = 3.0   # assume eyes are back at centre after this long
+note_left = 43
+note_right = 45
+
+# Alpha: fraction of 4-30 Hz power that is in the 8-13 Hz band, from a 2 s
+# Hann-windowed FFT, recomputed every 0.25 s. Readings are rejected while the
+# accelerometer shows movement, and the rest feed an exponential moving average.
+#
+# Calibrate first (GUI button: 2 s to settle, then 5 s eyes open, head still).
+# The median eyes-open fraction becomes the baseline; gain = smoothed / baseline.
+# When calibration succeeds a long note starts, and alpha bends its pitch up:
+# baseline = no bend, full_scale_gain x baseline = full bend. Set the synth's
+# pitch-bend range to choose how far that is (e.g. 12 = one octave).
+[alpha]
+channels = [7]               # O1; list several to average their fractions
+band = [8.0, 13.0]
+broadband = [4.0, 30.0]
+window_seconds = 2.0
+update_seconds = 0.25
+smooth_seconds = 3.0         # larger = steadier, but slower response
+motion_threshold_g = 0.12    # accelerometer deviation that rejects a reading; tune experimentally
+min_accel_samples = 8
+require_accel = true         # pause alpha when there is no accelerometer data
+calibration_delay = 2.0
+calibration_seconds = 5.0
+min_calibration_values = 8
+full_scale_gain = 2.5
+note = 60                    # the long note (middle C)
+velocity = 100
+bend_up = 1.0                # fraction of the synth's upward bend range used at full strength
+cc = 1                       # alpha strength also sent as mod wheel; -1 to disable
+
+# Optional extra continuous band-power CCs (adaptively normalised, 64 = your normal).
+# [[mapping]]
+# name = "Theta"
+# feature = "theta"        # delta, theta, alpha, beta, gamma, or a ratio like "alpha/beta"
+# channels = [1, 2]
+# cc = 21
+# smoothing = 0.8
